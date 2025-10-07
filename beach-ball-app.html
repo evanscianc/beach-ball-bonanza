@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouncing Beach Ball</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+            font-family: Arial, sans-serif;
+        }
+        #root {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        function BouncingBeachBall() {
+            const [position, setPosition] = useState({ x: 100, y: 100 });
+            const [velocity, setVelocity] = useState({ x: 3, y: 2 });
+            const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
+            const [speedMultiplier, setSpeedMultiplier] = useState(1);
+            const [isPopped, setIsPopped] = useState(false);
+
+            // Sea urchin state - starts opposite corner
+            const [urchinPos, setUrchinPos] = useState({
+                x: window.innerWidth - 180,
+                y: window.innerHeight - 180
+            });
+            const [urchinVel, setUrchinVel] = useState({ x: -2.5, y: -3 });
+
+            const ballSize = 80;
+            const urchinSize = 70;
+            const animationRef = useRef();
+
+            useEffect(() => {
+                const handleMouseMove = (e) => {
+                    setMousePos({ x: e.clientX, y: e.clientY });
+                };
+
+                const handleWheel = (e) => {
+                    e.preventDefault();
+                    setSpeedMultiplier(prev => {
+                        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                        const newSpeed = prev * delta;
+                        return Math.max(0.1, Math.min(5, newSpeed)); // Clamp between 0.1x and 5x
+                    });
+                };
+
+                window.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('wheel', handleWheel, { passive: false });
+                return () => {
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('wheel', handleWheel);
+                };
+            }, []);
+
+            useEffect(() => {
+                if (isPopped) return; // Stop animation if popped
+
+                const animate = () => {
+                    // Update sea urchin position
+                    setUrchinPos(prev => {
+                        const newX = prev.x + urchinVel.x;
+                        const newY = prev.y + urchinVel.y;
+
+                        let newVelX = urchinVel.x;
+                        let newVelY = urchinVel.y;
+
+                        // Bounce off walls
+                        if (newX <= 0 || newX >= window.innerWidth - urchinSize) {
+                            newVelX = -newVelX;
+                        }
+                        if (newY <= 0 || newY >= window.innerHeight - urchinSize) {
+                            newVelY = -newVelY;
+                        }
+
+                        if (newVelX !== urchinVel.x || newVelY !== urchinVel.y) {
+                            setUrchinVel({ x: newVelX, y: newVelY });
+                        }
+
+                        return {
+                            x: Math.max(0, Math.min(window.innerWidth - urchinSize, newX)),
+                            y: Math.max(0, Math.min(window.innerHeight - urchinSize, newY))
+                        };
+                    });
+
+                    // Update beach ball position
+                    setPosition(prev => {
+                        const newX = prev.x + velocity.x * speedMultiplier;
+                        const newY = prev.y + velocity.y * speedMultiplier;
+
+                        let newVelX = velocity.x;
+                        let newVelY = velocity.y;
+
+                        // Check collision with mouse (treat mouse as a point)
+                        const ballCenterX = newX + ballSize / 2;
+                        const ballCenterY = newY + ballSize / 2;
+                        const distance = Math.sqrt(
+                            Math.pow(ballCenterX - mousePos.x, 2) +
+                            Math.pow(ballCenterY - mousePos.y, 2)
+                        );
+
+                        if (distance < ballSize / 2) {
+                            // Calculate bounce direction away from mouse
+                            const angle = Math.atan2(ballCenterY - mousePos.y, ballCenterX - mousePos.x);
+                            const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+                            newVelX = Math.cos(angle) * speed;
+                            newVelY = Math.sin(angle) * speed;
+                        }
+
+                        // Check collision with sea urchin
+                        const urchinCenterX = urchinPos.x + urchinSize / 2;
+                        const urchinCenterY = urchinPos.y + urchinSize / 2;
+                        const urchinDistance = Math.sqrt(
+                            Math.pow(ballCenterX - urchinCenterX, 2) +
+                            Math.pow(ballCenterY - urchinCenterY, 2)
+                        );
+
+                        if (urchinDistance < (ballSize / 2 + urchinSize / 2)) {
+                            // Beach ball pops!
+                            setIsPopped(true);
+                            return prev;
+                        }
+
+                        // Bounce off walls
+                        if (newX <= 0 || newX >= window.innerWidth - ballSize) {
+                            newVelX = -newVelX;
+                        }
+                        if (newY <= 0 || newY >= window.innerHeight - ballSize) {
+                            newVelY = -newVelY;
+                        }
+
+                        if (newVelX !== velocity.x || newVelY !== velocity.y) {
+                            setVelocity({ x: newVelX, y: newVelY });
+                        }
+
+                        return {
+                            x: Math.max(0, Math.min(window.innerWidth - ballSize, newX)),
+                            y: Math.max(0, Math.min(window.innerHeight - ballSize, newY))
+                        };
+                    });
+
+                    animationRef.current = requestAnimationFrame(animate);
+                };
+
+                animationRef.current = requestAnimationFrame(animate);
+
+                return () => {
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [velocity, mousePos, speedMultiplier, urchinPos, urchinVel, isPopped]);
+
+            return (
+                <>
+                    {/* Sea Urchin */}
+                    <div style={{
+                        position: 'absolute',
+                        left: `${urchinPos.x}px`,
+                        top: `${urchinPos.y}px`,
+                        width: `${urchinSize}px`,
+                        height: `${urchinSize}px`,
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle at 30% 30%, #4a4a4a, #1a1a1a)',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.5), inset -3px -3px 10px rgba(0,0,0,0.4)',
+                        transition: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'visible'
+                    }}>
+                        {/* Spikes */}
+                        {[...Array(12)].map((_, i) => {
+                            const angle = (i * 30) * Math.PI / 180;
+                            const spikeLength = 20;
+                            const x = Math.cos(angle) * (urchinSize / 2);
+                            const y = Math.sin(angle) * (urchinSize / 2);
+                            return (
+                                <div key={i} style={{
+                                    position: 'absolute',
+                                    width: '3px',
+                                    height: `${spikeLength}px`,
+                                    background: 'linear-gradient(to bottom, #2a2a2a, #000)',
+                                    left: `${urchinSize / 2 + x}px`,
+                                    top: `${urchinSize / 2 + y}px`,
+                                    transformOrigin: '0 0',
+                                    transform: `rotate(${i * 30}deg)`,
+                                    borderRadius: '2px'
+                                }} />
+                            );
+                        })}
+                    </div>
+
+                    {/* Beach Ball */}
+                    {!isPopped ? (
+                        <div style={{
+                            position: 'absolute',
+                            left: `${position.x}px`,
+                            top: `${position.y}px`,
+                            width: `${ballSize}px`,
+                            height: `${ballSize}px`,
+                            borderRadius: '50%',
+                            background: `conic-gradient(
+                                from 0deg,
+                                #FF6B6B 0deg 60deg,
+                                #FFD93D 60deg 120deg,
+                                #6BCB77 120deg 180deg,
+                                #4D96FF 180deg 240deg,
+                                #9D4EDD 240deg 300deg,
+                                #FF6B6B 300deg 360deg
+                            )`,
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.3), inset -5px -5px 15px rgba(0,0,0,0.2)',
+                            transition: 'none'
+                        }} />
+                    ) : (
+                        <div style={{
+                            position: 'absolute',
+                            left: `${position.x + ballSize / 2}px`,
+                            top: `${position.y + ballSize / 2}px`,
+                            fontSize: '48px',
+                            transform: 'translate(-50%, -50%)',
+                            color: '#ff4444'
+                        }}>
+                            💥
+                        </div>
+                    )}
+                </>
+            );
+        }
+
+        ReactDOM.render(<BouncingBeachBall />, document.getElementById('root'));
+    </script>
+</body>
+</html>
