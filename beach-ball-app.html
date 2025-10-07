@@ -32,6 +32,7 @@
             const [mousePos, setMousePos] = useState({ x: -100, y: -100 });
             const [speedMultiplier, setSpeedMultiplier] = useState(1);
             const [isPopped, setIsPopped] = useState(false);
+            const [score, setScore] = useState(0);
 
             // Sea urchin state - starts opposite corner
             const [urchinPos, setUrchinPos] = useState({
@@ -135,11 +136,18 @@
                         }
 
                         // Bounce off walls
+                        let hitWall = false;
                         if (newX <= 0 || newX >= window.innerWidth - ballSize) {
                             newVelX = -newVelX;
+                            hitWall = true;
                         }
                         if (newY <= 0 || newY >= window.innerHeight - ballSize) {
                             newVelY = -newVelY;
+                            hitWall = true;
+                        }
+
+                        if (hitWall) {
+                            setScore(s => s + 0.5);
                         }
 
                         if (newVelX !== velocity.x || newVelY !== velocity.y) {
@@ -166,6 +174,21 @@
 
             return (
                 <>
+                    {/* Score Display */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '20px',
+                        left: '20px',
+                        fontSize: '32px',
+                        fontWeight: 'bold',
+                        color: 'white',
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+                        zIndex: 1000,
+                        userSelect: 'none'
+                    }}>
+                        Score: {score}
+                    </div>
+
                     {/* Sea Urchin */}
                     <div style={{
                         position: 'absolute',
@@ -174,7 +197,7 @@
                         width: `${urchinSize}px`,
                         height: `${urchinSize}px`,
                         borderRadius: '50%',
-                        background: 'radial-gradient(circle at 30% 30%, #4a4a4a, #1a1a1a)',
+                        background: 'radial-gradient(circle at 30% 30%, #773ec1, #1a1a1a)',
                         boxShadow: '0 4px 8px rgba(0,0,0,0.5), inset -3px -3px 10px rgba(0,0,0,0.4)',
                         transition: 'none',
                         display: 'flex',
@@ -193,7 +216,7 @@
                                     position: 'absolute',
                                     width: '3px',
                                     height: `${spikeLength}px`,
-                                    background: 'linear-gradient(to bottom, #2a2a2a, #000)',
+                                    background: 'linear-gradient(to bottom, #773ec1, #000)',
                                     left: `${urchinSize / 2 + x}px`,
                                     top: `${urchinSize / 2 + y}px`,
                                     transformOrigin: '0 0',
