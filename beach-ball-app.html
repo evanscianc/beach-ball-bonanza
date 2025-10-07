@@ -34,6 +34,15 @@
             const [isPopped, setIsPopped] = useState(false);
             const [score, setScore] = useState(0);
 
+            // Snowflake power-up state
+            const [snowflakePos, setSnowflakePos] = useState({
+                x: window.innerWidth / 2 - 20,
+                y: window.innerHeight / 2 - 20
+            });
+            const [snowflakeVel, setSnowflakeVel] = useState({ x: 1.5, y: 2 });
+            const [snowflakeActive, setSnowflakeActive] = useState(true);
+            const [urchinSlowed, setUrchinSlowed] = useState(false);
+
             // Sea urchin state - starts opposite corner
             const [urchinPos, setUrchinPos] = useState({
                 x: window.innerWidth - 180,
@@ -43,7 +52,9 @@
 
             const ballSize = 80;
             const urchinSize = 70;
+            const snowflakeSize = 40;
             const animationRef = useRef();
+            const slowdownTimerRef = useRef();
 
             useEffect(() => {
                 const handleMouseMove = (e) => {
@@ -71,10 +82,39 @@
                 if (isPopped) return; // Stop animation if popped
 
                 const animate = () => {
+                    // Update snowflake position
+                    if (snowflakeActive) {
+                        setSnowflakePos(prev => {
+                            const newX = prev.x + snowflakeVel.x;
+                            const newY = prev.y + snowflakeVel.y;
+
+                            let newVelX = snowflakeVel.x;
+                            let newVelY = snowflakeVel.y;
+
+                            // Bounce off walls
+                            if (newX <= 0 || newX >= window.innerWidth - snowflakeSize) {
+                                newVelX = -newVelX;
+                            }
+                            if (newY <= 0 || newY >= window.innerHeight - snowflakeSize) {
+                                newVelY = -newVelY;
+                            }
+
+                            if (newVelX !== snowflakeVel.x || newVelY !== snowflakeVel.y) {
+                                setSnowflakeVel({ x: newVelX, y: newVelY });
+                            }
+
+                            return {
+                                x: Math.max(0, Math.min(window.innerWidth - snowflakeSize, newX)),
+                                y: Math.max(0, Math.min(window.innerHeight - snowflakeSize, newY))
+                            };
+                        });
+                    }
+
                     // Update sea urchin position
                     setUrchinPos(prev => {
-                        const newX = prev.x + urchinVel.x;
-                        const newY = prev.y + urchinVel.y;
+                        const speedMultiplier = urchinSlowed ? 0.3 : 1;
+                        const newX = prev.x + urchinVel.x * speedMultiplier;
+                        const newY = prev.y + urchinVel.y * speedMultiplier;
 
                         let newVelX = urchinVel.x;
                         let newVelY = urchinVel.y;
@@ -135,6 +175,33 @@
                             return prev;
                         }
 
+                        // Check collision with snowflake
+                        if (snowflakeActive) {
+                            const snowflakeCenterX = snowflakePos.x + snowflakeSize / 2;
+                            const snowflakeCenterY = snowflakePos.y + snowflakeSize / 2;
+                            const snowflakeDistance = Math.sqrt(
+                                Math.pow(ballCenterX - snowflakeCenterX, 2) +
+                                Math.pow(ballCenterY - snowflakeCenterY, 2)
+                            );
+
+                            if (snowflakeDistance < (ballSize / 2 + snowflakeSize / 2)) {
+                                // Collected snowflake! Slow down urchin
+                                setSnowflakeActive(false);
+                                setUrchinSlowed(true);
+
+                                // Clear any existing timer
+                                if (slowdownTimerRef.current) {
+                                    clearTimeout(slowdownTimerRef.current);
+                                }
+
+                                // Set timer to restore urchin speed after 10 seconds
+                                slowdownTimerRef.current = setTimeout(() => {
+                                    setUrchinSlowed(false);
+                                    setSnowflakeActive(true);
+                                }, 10000);
+                            }
+                        }
+
                         // Bounce off walls
                         let hitWall = false;
                         if (newX <= 0 || newX >= window.innerWidth - ballSize) {
@@ -169,8 +236,11 @@
                     if (animationRef.current) {
                         cancelAnimationFrame(animationRef.current);
                     }
+                    if (slowdownTimerRef.current) {
+                        clearTimeout(slowdownTimerRef.current);
+                    }
                 };
-            }, [velocity, mousePos, speedMultiplier, urchinPos, urchinVel, isPopped]);
+            }, [velocity, mousePos, speedMultiplier, urchinVel, isPopped, snowflakeVel, snowflakePos, snowflakeActive, urchinSlowed]);
 
             return (
                 <>
@@ -188,6 +258,25 @@
                     }}>
                         Score: {score}
                     </div>
+
+                    {/* Snowflake Power-up */}
+                    {snowflakeActive && (
+                        <div style={{
+                            position: 'absolute',
+                            left: `${snowflakePos.x}px`,
+                            top: `${snowflakePos.y}px`,
+                            width: `${snowflakeSize}px`,
+                            height: `${snowflakeSize}px`,
+                            fontSize: `${snowflakeSize}px`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'none',
+                            userSelect: 'none'
+                        }}>
+                            ❄️
+                        </div>
+                    )}
 
                     {/* Sea Urchin */}
                     <div style={{
